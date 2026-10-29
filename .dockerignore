@@ -1,0 +1,8 @@
+.venv
+.git
+__pycache__/
+datasets/
+runs/
+docs/
+*.mp4
+yolov8s.pt

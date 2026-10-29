@@ -2,3 +2,4 @@ ultralytics
 opencv-python
 onnx
 onnxruntime
+lap

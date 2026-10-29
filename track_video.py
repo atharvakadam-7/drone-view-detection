@@ -1,9 +1,12 @@
+import os
 import sys
 import time
 import cv2
+import torch
 from ultralytics import YOLO
 
-MODEL = r"runs\detect\runs\visdrone_s\weights\best.pt"
+MODEL = os.environ.get("MODEL_PATH", "weights/best.pt")
+DEVICE = 0 if torch.cuda.is_available() else "cpu"
 SRC = sys.argv[1] if len(sys.argv) > 1 else "drone.mp4"
 IMGSZ = int(sys.argv[2]) if len(sys.argv) > 2 else 640
 OUT = f"{SRC.rsplit('.', 1)[0]}_tracked_{IMGSZ}.mp4"
@@ -26,7 +29,7 @@ while True:
     frame = cv2.resize(frame, (W, H))
     t0 = time.perf_counter()
     r = model.track(frame, persist=True, tracker="bytetrack.yaml",
-                    conf=CONF, imgsz=IMGSZ, device=0, verbose=False)[0]
+                    conf=CONF, imgsz=IMGSZ, device=DEVICE, verbose=False)[0]
     times.append(time.perf_counter() - t0)
     if r.boxes.id is not None:
         ids.update(r.boxes.id.int().tolist())

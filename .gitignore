@@ -5,3 +5,4 @@ runs/
 *.pt
 *.onnx
 __pycache__/
+!weights/best.pt
