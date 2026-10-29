@@ -1,10 +1,33 @@
 # Drone-View Object Detection & Tracking (YOLOv8 + OpenCV + ONNX)
 
 Fine-tuned YOLOv8s on VisDrone aerial imagery, built an OpenCV + ByteTrack video pipeline, exported to ONNX, and tested how input resolution affects small-object detection.
+The tracking pipeline is packaged with Docker (CPU image) so it runs with one command.
 
-**Not done (on purpose, see Limitations):** Jetson / Raspberry Pi deployment, INT8 quantization, TensorRT, tracker tuning.
+**Not done (on purpose, see Limitations):** Jetson / Raspberry Pi deployment, INT8 quantization, TensorRT, tracker tuning, GPU support inside Docker.
 
 ![demo](docs/demo.gif)
+
+## Run with Docker
+
+You need Docker (Docker Desktop on Windows or Mac). The image is CPU-only, so no GPU or CUDA setup is needed. The trained model (`weights/best.pt`, model A below) is included in the repo.
+
+```
+# 1. Put a video in a videos/ folder (any .mp4, for example videos/drone.mp4)
+mkdir videos
+
+# 2. Build the image (the first build downloads PyTorch and takes several minutes)
+docker build -t drone-tracker .
+
+# 3. Run it
+docker run --rm -v "$(pwd)/videos:/videos" drone-tracker /videos/drone.mp4 640
+```
+
+On Windows PowerShell, use `${PWD}` instead of `$(pwd)`.
+
+- **Arguments:** `<video> <imgsz>`, the same as `track_video.py`. With no arguments the container runs `/videos/drone.mp4` at 640.
+- **Output:** the tracked video is saved next to the input, for example `videos/drone_tracked_640.mp4`.
+- **Other weights:** mount a folder and point `MODEL_PATH` at the file, for example `-v "$(pwd)/my_weights:/models" -e MODEL_PATH=/models/best.pt`.
+- **Speed:** CPU only, so it is much slower than the GPU numbers below. On the day clip at 640 the container ran at 77.0 ms/frame (13.0 FPS), see the video pipeline table.
 
 ## Results
 
@@ -96,7 +119,7 @@ Operating point: the F1-confidence curve peaks at 0.43 at confidence 0.215, so d
 ## Qualitative notes
 
 - **Day clip:** cars and the bus are boxed cleanly at roughly 0.8-0.9 confidence. Frames with no vehicles are empty apart from occasional small false positives.
-- **Night clip:** many cars are detected, but track IDs fragment and class labels flicker (the same object flips between truck and van). The model was trained on daytime imagery only, so this is a stress test, not a result. The unique-ID counts printed by the script (78 day, 465 night at 640, 514 night at 1280) are **not** accuracy metrics: ID switches inflate them, and ByteTrack's ID counter also advances on tracks that are never shown.
+- **Night clip:** many cars are detected, but track IDs fragment and class labels flicker (the same object flips between truck and van). The model was trained on daytime imagery only, so this is a stress test, not a result. The unique-ID counts printed by the script (78 day, 465 night at 640, 514 night at 1280) are **not** accuracy metrics: ID switches inflate them, and ByteTrack's ID counter also advances on tracks that are never shown.The day clip gave 82 IDs in the CPU Docker run versus 78 on the GPU, which shows how unstable this count is.
 - I did not measure a miss rate on the demo clips; only a handful of frames were inspected by eye. Demo clips were run with model A, not model B.
 
 ## Limitations
@@ -110,7 +133,7 @@ Operating point: the F1-confidence curve peaks at 0.43 at confidence 0.215, so d
 
 ## Future work
 
-Tile images (SAHI) or add a P2 detection head for small objects, rebalance or merge ambiguous classes, benchmark 960 latency properly, quantize to INT8 and test on real edge hardware.
+Tile images (SAHI) or add a P2 detection head for small objects, rebalance or merge ambiguous classes, benchmark 960 latency properly, quantize to INT8 and test on real edge hardware, add GPU support to the Docker image.
 
 ## Reproduce
 
@@ -143,13 +166,17 @@ Environment: Ultralytics 8.4.189, Python 3.13, torch 2.11 (CUDA 12.8), RTX 3050 
 
 ```
 README.md
-track_video.py      # YOLOv8 + ByteTrack on a video: python track_video.py <video> <imgsz>
-bench.py            # PyTorch CPU / GPU vs ONNX Runtime CPU latency table
+Dockerfile          # CPU-only image that runs track_video.py          
+.dockerignore       # keeps videos, datasets and training runs out     
+track_video.py
+bench.py
 requirements.txt
-docs/               # demo GIF and result plots
+weights/best.pt     # model A (YOLOv8s fine-tuned at 640)               
+docs/
+
 ```
 
-Weights, datasets, training runs and videos are not committed.
+Datasets, training runs and videos are not committed.
 
 ## License
 
